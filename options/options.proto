@@ -1,0 +1,39 @@
+syntax = "proto2";
+
+package protoc_gen_starlark_go.options;
+
+import "google/protobuf/descriptor.proto";
+
+option go_package = "github.com/ImSingee/protoc-gen-starlark-go/options";
+
+message MessageOption {
+  message CustomStarlark {
+    // if empty, the package will be same as go_package option
+    // if `STARLARK`, will use go.starlark.net/starlark
+    // if `HELPER`, will use github.com/ImSingee/starlarkhelper
+    required string starlark_type_package = 1;
+
+    // the name returned by `ToStarlark` method
+    // if it returns pointer, starlark_type_name should start with *
+    required string starlark_type_name = 2;
+  }
+
+  oneof option {
+    // Ignore the message
+    bool disable = 1 [default = false];
+
+    // Simple convert to starlark.String
+    bool to_string = 2;
+
+    // User will provide a fully custom ToStarlark method
+    CustomStarlark custom = 4;
+  }
+}
+
+extend google.protobuf.MessageOptions {
+  optional MessageOption message_option = 98125;
+}
+
+extend google.protobuf.EnumOptions {
+  optional MessageOption enum_option = 98125;
+}
