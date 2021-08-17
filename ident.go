@@ -26,3 +26,16 @@ var (
 	starlarkMap    = protogen.GoIdent{GoName: "Dict", GoImportPath: starlarkPackage}  // TODO Enhance it
 	starlarkValue  = protogen.GoIdent{GoName: "Value", GoImportPath: starlarkPackage} // TODO Enhance it
 )
+
+func GetImportPath(name string, default_ protogen.GoImportPath) protogen.GoImportPath {
+	switch name {
+	case "":
+		return default_
+	case "STARLARK":
+		return starlarkPackage
+	case "STARLARKHELPER", "HELPER":
+		return starlarkhelperPackage
+	default:
+		return protogen.GoImportPath(name)
+	}
+}

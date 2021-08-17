@@ -8,6 +8,7 @@ import (
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"os"
+	"strings"
 	"unicode"
 	"unicode/utf8"
 )
@@ -223,6 +224,28 @@ func fieldStarlarkType(gen *protogen.Plugin, g *protogen.GeneratedFile, f *fileI
 				prefix = "*"
 			}
 			return prefix + g.QualifiedGoIdent(name)
+		}
+		if ext := GetMessageExtensionFor(field.Message); ext != nil {
+			switch {
+			case ext.GetDisable():
+				return ""
+			case ext.GetToString():
+				return g.QualifiedGoIdent(starlarkString)
+			}
+
+			if custom := ext.GetCustom(); custom != nil {
+				importPath := GetImportPath(custom.GetStarlarkTypePackage(), field.Message.GoIdent.GoImportPath)
+				importName := custom.GetStarlarkTypeName()
+				prefix := ""
+				if strings.HasPrefix(importName, "*") {
+					prefix = "*"
+					importName = importName[1:]
+				}
+				return prefix + g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: importPath, GoName: importName})
+			}
+
+			gen.Error(fmt.Errorf("invalid option"))
+			return ""
 		}
 		if IsWellKnownType(full) {
 			_, _ = os.Stderr.WriteString("unsupported well-known type " + full + "\n")
