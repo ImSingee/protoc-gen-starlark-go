@@ -139,10 +139,12 @@ func genMessage(gen *protogen.Plugin, g *protogen.GeneratedFile, f *fileInfo, m 
 
 	// Message type declaration.
 	g.Annotate(m.GoIdent.GoName, m.Location)
-	g.P("type ", m.GoIdent, `Starlark struct{`)
+	g.P("type ", StarlarkStructName(m.GoIdent), ` struct{`)
 	genMessageFields(gen, g, f, m)
 	g.P("}")
 	g.P()
+
+	genStarlarkProvider(g, m)
 
 	//genMessageKnownFunctions(g, f, m)
 	//genMessageDefaultDecls(g, f, m)
@@ -160,11 +162,11 @@ func genMessageFields(gen *protogen.Plugin, g *protogen.GeneratedFile, f *fileIn
 func genMessageField(gen *protogen.Plugin, g *protogen.GeneratedFile, f *fileInfo, m *messageInfo, field *protogen.Field, sf *structFields) {
 	if oneof := field.Oneof; oneof != nil && !oneof.Desc.IsSynthetic() {
 		if oneof.Fields[0] == field {
-			g.P(oneof.GoName, " ", g.QualifiedGoIdent(starlarkValue))
+			g.P(StarlarkFieldName(oneof.GoIdent).GoName, " ", g.QualifiedGoIdent(starlarkValue))
 		}
 	}
 
-	g.P(field.GoName, " ", fieldStarlarkType(gen, g, f, field))
+	g.P(StarlarkFieldName(field.GoIdent).GoName, " ", fieldStarlarkType(gen, g, f, field))
 }
 
 // fieldStarlarkType returns the Starlark type used for a field.
@@ -231,9 +233,56 @@ func fieldStarlarkType(gen *protogen.Plugin, g *protogen.GeneratedFile, f *fileI
 			return g.QualifiedGoIdent(starlarkValue)
 		}
 
-		return `*` + g.QualifiedGoIdent(field.Message.GoIdent) + "Starlark"
+		return `*` + g.QualifiedGoIdent(StarlarkFieldName(field.Message.GoIdent))
 	}
 
 	gen.Error(fmt.Errorf("unknown type (not supported)"))
 	return ""
+}
+
+func genStarlarkProvider(g *protogen.GeneratedFile, m *messageInfo) {
+	g.P(`var _ `, g.QualifiedGoIdent(starlarkValue), ` = (*`, StarlarkStructName(m.GoIdent), `)(nil)`)
+
+	// String() string
+	g.P("func (x *", StarlarkStructName(m.GoIdent), ") String() string {")
+	g.P(`return `, g.QualifiedGoIdent(fmtSprintf), `("`, m.Desc.Name(), `{"+`)
+	for i, field := range m.Fields {
+		prefix := ""
+		if i != 0 {
+			prefix = ", "
+		}
+		if oneof := field.Oneof; oneof != nil && !oneof.Desc.IsSynthetic() && oneof.Fields[0] == field {
+			g.P(`"`, prefix, oneof.Desc.Name(), `= %s"+`)
+		}
+
+		g.P(`"`, prefix, field.Desc.Name(), `= %s"+`)
+	}
+
+	g.P(`"}",`)
+	for _, field := range m.Fields {
+		if oneof := field.Oneof; oneof != nil && !oneof.Desc.IsSynthetic() && oneof.Fields[0] == field {
+			g.P(`x.`, StarlarkFieldName(oneof.GoIdent).GoName, `,`)
+		}
+
+		g.P(`x.`, StarlarkFieldName(field.GoIdent).GoName, `,`)
+	}
+	g.P(`)`)
+	g.P(`}`)
+
+	// Type() string
+	// TODO: support custom type name
+	g.P("func (x *", StarlarkStructName(m.GoIdent), ") Type() string {")
+	g.P(`return "`, m.Desc.FullName(), `"`)
+	g.P(`}`)
+
+	// Freeze()
+	g.P("func (x *", StarlarkStructName(m.GoIdent), ") Freeze() {}")
+
+	//Truth() Bool
+	// TODO: support custom truth
+	g.P("func (x *", StarlarkStructName(m.GoIdent), ") Truth() ", g.QualifiedGoIdent(starlarkBool), " { return true }")
+
+	// Hash() (uint32, error)
+	// TODO: support custom hash
+	g.P("func (x *", StarlarkStructName(m.GoIdent), ") Hash() (uint32, error) ", " { return 0, ", g.QualifiedGoIdent(fmtErrorf), `("un-hashable") }`)
 }

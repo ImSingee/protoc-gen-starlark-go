@@ -4,11 +4,17 @@ import "google.golang.org/protobuf/compiler/protogen"
 
 const (
 	reflectPackage = protogen.GoImportPath("reflect")
+	fmtPackage     = protogen.GoImportPath("fmt")
 	sortPackage    = protogen.GoImportPath("sort")
 	stringsPackage = protogen.GoImportPath("strings")
 	syncPackage    = protogen.GoImportPath("sync")
 	timePackage    = protogen.GoImportPath("time")
 	utf8Package    = protogen.GoImportPath("unicode/utf8")
+)
+
+var (
+	fmtSprintf = protogen.GoIdent{GoName: "Sprintf", GoImportPath: fmtPackage}
+	fmtErrorf  = protogen.GoIdent{GoName: "Errorf", GoImportPath: fmtPackage}
 )
 
 const (
