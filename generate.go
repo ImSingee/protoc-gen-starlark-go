@@ -158,33 +158,11 @@ func genMessageFields(gen *protogen.Plugin, g *protogen.GeneratedFile, f *fileIn
 }
 
 func genMessageField(gen *protogen.Plugin, g *protogen.GeneratedFile, f *fileInfo, m *messageInfo, field *protogen.Field, sf *structFields) {
-	//if oneof := field.Oneof; oneof != nil && !oneof.Desc.IsSynthetic() {
-	//	// It would be a bit simpler to iterate over the oneofs below,
-	//	// but generating the field here keeps the contents of the Go
-	//	// struct in the same order as the contents of the source
-	//	// .proto file.
-	//	//if oneof.Fields[0] != field {
-	//	//	return // only generate for first appearance
-	//	//}
-	//	//
-	//	//g.Annotate(m.GoIdent.GoName+"."+oneof.GoName, oneof.Location)
-	//	//leadingComments := oneof.Comments.Leading
-	//	//if leadingComments != "" {
-	//	//	leadingComments += "\n"
-	//	//}
-	//	//ss := []string{fmt.Sprintf(" Types that are assignable to %s:\n", oneof.GoName)}
-	//	//for _, field := range oneof.Fields {
-	//	//	ss = append(ss, "\t*"+field.GoIdent.GoName+"\n")
-	//	//}
-	//	//leadingComments += protogen.Comments(strings.Join(ss, ""))
-	//	//g.P(leadingComments,
-	//	//	oneof.GoName, " ", oneofInterfaceName(oneof), tags)
-	//	//sf.append(oneof.GoName)
-	//
-	//	// TODO
-	//
-	//	return
-	//}
+	if oneof := field.Oneof; oneof != nil && !oneof.Desc.IsSynthetic() {
+		if oneof.Fields[0] == field {
+			g.P(oneof.GoName, " ", g.QualifiedGoIdent(starlarkValue))
+		}
+	}
 
 	g.P(field.GoName, " ", fieldStarlarkType(gen, g, f, field))
 }
