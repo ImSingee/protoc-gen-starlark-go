@@ -220,6 +220,7 @@ func fieldStarlarkType(gen *protogen.Plugin, g *protogen.GeneratedFile, f *fileI
 
 func genStarlarkProvider(g *protogen.GeneratedFile, m *messageInfo) {
 	g.P(`var _ `, g.QualifiedGoIdent(starlarkValue), ` = (*`, StarlarkStructName(m.GoIdent), `)(nil)`)
+	g.P(`var _ `, g.QualifiedGoIdent(starlarkHasAttrs), ` = (*`, StarlarkStructName(m.GoIdent), `)(nil)`)
 
 	// String() string
 	g.P("func (x *", StarlarkStructName(m.GoIdent), ") String() string {")
@@ -267,14 +268,31 @@ func genStarlarkProvider(g *protogen.GeneratedFile, m *messageInfo) {
 	g.P("func (x *", StarlarkStructName(m.GoIdent), ") AttrNames() []string { return []string{")
 	for _, field := range m.Fields {
 		if oneof := field.Oneof; oneof != nil && !oneof.Desc.IsSynthetic() && oneof.Fields[0] == field {
-			g.P(`"`, StarlarkFieldName(oneof.GoIdent, oneof.GoName).GoName, `",`)
+			g.P(`"`, oneof.Desc.Name(), `",`)
 		}
 
-		g.P(`"`, StarlarkFieldName(field.GoIdent, field.GoName).GoName, `",`)
+		g.P(`"`, field.Desc.Name(), `",`)
 	}
 	g.P("}}")
 
 	// Attr(name string) (Value, error) // returns (nil, nil) if attribute not present
+	g.P("func (x *", StarlarkStructName(m.GoIdent), ") Attr(name string) (", starlarkValue, ", error) {")
+	g.P(`if x == nil { return nil, nil }`)
+	g.P("switch name {")
+	for _, field := range m.Fields {
+		if oneof := field.Oneof; oneof != nil && !oneof.Desc.IsSynthetic() && oneof.Fields[0] == field {
+			g.P(`case "`, oneof.Desc.Name(), `":`)
+			g.P("return x.", StarlarkFieldName(oneof.GoIdent, oneof.GoName).GoName, ", nil")
+		}
+
+		g.P(`case "`, field.Desc.Name(), `":`)
+		g.P("return x.", StarlarkFieldName(field.GoIdent, field.GoName).GoName, ", nil")
+	}
+
+	g.P("default:")
+	g.P("return nil, nil")
+	g.P("}")
+	g.P("}")
 }
 
 func genDocProvider() {
@@ -287,14 +305,39 @@ func genConverter(g *protogen.GeneratedFile, m *messageInfo) {
 	for _, field := range m.Fields {
 		fieldStarlarkConverterPrepare(g, m, field)
 	}
+	for _, field := range m.Fields {
+		if oneof := field.Oneof; oneof != nil && !oneof.Desc.IsSynthetic() && oneof.Fields[0] == field {
+			oneofStarlarkConverterPrepare(g, m, oneof)
+		}
+	}
 	g.P()
 	g.P("return &", StarlarkStructName(m.GoIdent), "{")
 	for _, field := range m.Fields {
+		if oneof := field.Oneof; oneof != nil && !oneof.Desc.IsSynthetic() && oneof.Fields[0] == field {
+			g.P(StarlarkFieldName(oneof.GoIdent, oneof.GoName), ": oneof_", oneof.GoName, ",")
+		}
 		if c := fieldStarlarkConverter(g, m, field); c != "" {
 			g.P(StarlarkFieldName(field.GoIdent, field.GoName), ": ", c, ",")
 		}
 	}
 	g.P("}")
+	g.P("}")
+}
+
+func oneofStarlarkConverterPrepare(g *protogen.GeneratedFile, m *messageInfo, oneof *protogen.Oneof) {
+	g.P()
+	g.P("var oneof_", oneof.GoName, " ", starlarkValue)
+	for i, field := range oneof.Fields {
+		prefix := "} else "
+		if i == 0 {
+			prefix = ""
+		}
+
+		g.P(prefix, "if v := x.Get", field.GoName, "(); v != nil {")
+		g.P("oneof_", oneof.GoName, " = ", simpleStarlarkConverter(g, field.Desc, "v"))
+	}
+	g.P("} else {")
+	g.P("oneof_", oneof.GoName, " = ", starlarkNone)
 	g.P("}")
 }
 

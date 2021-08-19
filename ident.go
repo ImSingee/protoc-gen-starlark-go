@@ -33,6 +33,10 @@ var (
 	starlarkMap    = protogen.GoIdent{GoName: "Dict", GoImportPath: starlarkPackage}  // TODO Enhance it
 	starlarkValue  = protogen.GoIdent{GoName: "Value", GoImportPath: starlarkPackage} // TODO Enhance it
 
+	starlarkHasAttrs = protogen.GoIdent{GoName: "HasAttrs", GoImportPath: starlarkPackage}
+
+	starlarkNone = protogen.GoIdent{GoName: "None", GoImportPath: starlarkPackage}
+
 	starlarkMakeInt64  = protogen.GoIdent{GoName: "MakeInt64", GoImportPath: starlarkPackage}
 	starlarkMakeUint64 = protogen.GoIdent{GoName: "MakeUint64", GoImportPath: starlarkPackage}
 	starlarkNewList    = protogen.GoIdent{GoName: "NewList", GoImportPath: starlarkPackage}
