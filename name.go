@@ -4,12 +4,14 @@ import (
 	"google.golang.org/protobuf/compiler/protogen"
 )
 
-func StarlarkStructName(goName protogen.GoIdent) string {
-	return goName.GoName + "Starlark"
+func StarlarkStructName(goName protogen.GoIdent) protogen.GoIdent {
+	return protogen.GoIdent{
+		GoName:       goName.GoName + "Starlark",
+		GoImportPath: goName.GoImportPath,
+	}
 }
 
-func StarlarkFieldName(goName protogen.GoIdent) protogen.GoIdent {
-	name := goName.GoName
+func StarlarkFieldName(goIdent protogen.GoIdent, name string) protogen.GoIdent {
 	switch name {
 	case "Name", "String", "Type", "Freeze", "Truth", "Hash", "Attr", "AttrNames",
 		"Assert",
@@ -19,6 +21,6 @@ func StarlarkFieldName(goName protogen.GoIdent) protogen.GoIdent {
 
 	return protogen.GoIdent{
 		GoName:       name,
-		GoImportPath: goName.GoImportPath,
+		GoImportPath: goIdent.GoImportPath,
 	}
 }

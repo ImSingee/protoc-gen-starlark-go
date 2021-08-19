@@ -31,6 +31,9 @@ var (
 	starlarkList   = protogen.GoIdent{GoName: "List", GoImportPath: starlarkPackage}
 	starlarkMap    = protogen.GoIdent{GoName: "Dict", GoImportPath: starlarkPackage}  // TODO Enhance it
 	starlarkValue  = protogen.GoIdent{GoName: "Value", GoImportPath: starlarkPackage} // TODO Enhance it
+
+	starlarkMakeInt64  = protogen.GoIdent{GoName: "MakeInt64", GoImportPath: starlarkPackage}
+	starlarkMakeUint64 = protogen.GoIdent{GoName: "MakeUint64", GoImportPath: starlarkPackage}
 )
 
 func GetImportPath(name string, default_ protogen.GoImportPath) protogen.GoImportPath {

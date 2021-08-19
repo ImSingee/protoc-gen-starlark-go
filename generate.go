@@ -114,24 +114,6 @@ func genImport(gen *protogen.Plugin, g *protogen.GeneratedFile, f *fileInfo, imp
 	g.P()
 }
 
-/*
-var ResponseType = helper.NewStruct("Response",
-	helper.StringArg("url").Short("原始请求 URL"),
-	helper.IntArg("status_code").Short("返回值"),
-	helper.DictArg("headers", helper.StringArg("header_name"), helper.ListArg("header_values", helper.StringArg("value"))),
-	helper.FuncArg("body", nil, helper.StringArg("")),
-	helper.FuncArg("json", nil, helper.StringArg("")).Short("body 信息，并进行 JSON decode"),
-).WithAssertProvider(func(s *helper.Struct) (pass bool, failReason string) {
-	statusCode := s.Values["status_code"]
-
-	if helper.EqualInt(statusCode, 200) {
-		return true, ""
-	} else {
-		return false, fmt.Sprintf("status code = %v != 200", statusCode)
-	}
-})
-*/
-
 func genMessage(gen *protogen.Plugin, g *protogen.GeneratedFile, f *fileInfo, m *messageInfo) {
 	if m.Desc.IsMapEntry() {
 		return
@@ -145,11 +127,7 @@ func genMessage(gen *protogen.Plugin, g *protogen.GeneratedFile, f *fileInfo, m 
 	g.P()
 
 	genStarlarkProvider(g, m)
-
-	//genMessageKnownFunctions(g, f, m)
-	//genMessageDefaultDecls(g, f, m)
-	//genMessageMethods(g, f, m)
-	//genMessageOneofWrapperTypes(g, f, m)
+	genConverter(g, m)
 }
 
 func genMessageFields(gen *protogen.Plugin, g *protogen.GeneratedFile, f *fileInfo, m *messageInfo) {
@@ -162,11 +140,11 @@ func genMessageFields(gen *protogen.Plugin, g *protogen.GeneratedFile, f *fileIn
 func genMessageField(gen *protogen.Plugin, g *protogen.GeneratedFile, f *fileInfo, m *messageInfo, field *protogen.Field, sf *structFields) {
 	if oneof := field.Oneof; oneof != nil && !oneof.Desc.IsSynthetic() {
 		if oneof.Fields[0] == field {
-			g.P(StarlarkFieldName(oneof.GoIdent).GoName, " ", g.QualifiedGoIdent(starlarkValue))
+			g.P(StarlarkFieldName(oneof.GoIdent, oneof.GoName).GoName, " ", g.QualifiedGoIdent(starlarkValue))
 		}
 	}
 
-	g.P(StarlarkFieldName(field.GoIdent).GoName, " ", fieldStarlarkType(gen, g, f, field))
+	g.P(StarlarkFieldName(field.GoIdent, field.GoName).GoName, " ", fieldStarlarkType(gen, g, f, field))
 }
 
 // fieldStarlarkType returns the Starlark type used for a field.
@@ -233,7 +211,7 @@ func fieldStarlarkType(gen *protogen.Plugin, g *protogen.GeneratedFile, f *fileI
 			return g.QualifiedGoIdent(starlarkValue)
 		}
 
-		return `*` + g.QualifiedGoIdent(StarlarkFieldName(field.Message.GoIdent))
+		return `*` + g.QualifiedGoIdent(StarlarkStructName(field.Message.GoIdent))
 	}
 
 	gen.Error(fmt.Errorf("unknown type (not supported)"))
@@ -245,6 +223,7 @@ func genStarlarkProvider(g *protogen.GeneratedFile, m *messageInfo) {
 
 	// String() string
 	g.P("func (x *", StarlarkStructName(m.GoIdent), ") String() string {")
+	g.P(`if x == nil { return "`, m.Desc.Name(), `{}" }`)
 	g.P(`return `, g.QualifiedGoIdent(fmtSprintf), `("`, m.Desc.Name(), `{"+`)
 	for i, field := range m.Fields {
 		prefix := ""
@@ -261,19 +240,17 @@ func genStarlarkProvider(g *protogen.GeneratedFile, m *messageInfo) {
 	g.P(`"}",`)
 	for _, field := range m.Fields {
 		if oneof := field.Oneof; oneof != nil && !oneof.Desc.IsSynthetic() && oneof.Fields[0] == field {
-			g.P(`x.`, StarlarkFieldName(oneof.GoIdent).GoName, `,`)
+			g.P(`x.`, StarlarkFieldName(oneof.GoIdent, oneof.GoName).GoName, `,`)
 		}
 
-		g.P(`x.`, StarlarkFieldName(field.GoIdent).GoName, `,`)
+		g.P(`x.`, StarlarkFieldName(field.GoIdent, field.GoName).GoName, `,`)
 	}
 	g.P(`)`)
 	g.P(`}`)
 
 	// Type() string
 	// TODO: support custom type name
-	g.P("func (x *", StarlarkStructName(m.GoIdent), ") Type() string {")
-	g.P(`return "`, m.Desc.FullName(), `"`)
-	g.P(`}`)
+	g.P("func (x *", StarlarkStructName(m.GoIdent), `) Type() string { return "`, m.Desc.FullName(), `"}`)
 
 	// Freeze()
 	g.P("func (x *", StarlarkStructName(m.GoIdent), ") Freeze() {}")
@@ -284,5 +261,103 @@ func genStarlarkProvider(g *protogen.GeneratedFile, m *messageInfo) {
 
 	// Hash() (uint32, error)
 	// TODO: support custom hash
-	g.P("func (x *", StarlarkStructName(m.GoIdent), ") Hash() (uint32, error) ", " { return 0, ", g.QualifiedGoIdent(fmtErrorf), `("un-hashable") }`)
+	g.P("func (x *", StarlarkStructName(m.GoIdent), ") Hash() (uint32, error) { return 0, ", g.QualifiedGoIdent(fmtErrorf), `("un-hashable") }`)
+
+	// AttrNames() []string
+	g.P("func (x *", StarlarkStructName(m.GoIdent), ") AttrNames() []string { return []string{")
+	for _, field := range m.Fields {
+		if oneof := field.Oneof; oneof != nil && !oneof.Desc.IsSynthetic() && oneof.Fields[0] == field {
+			g.P(`"`, StarlarkFieldName(oneof.GoIdent, oneof.GoName).GoName, `",`)
+		}
+
+		g.P(`"`, StarlarkFieldName(field.GoIdent, field.GoName).GoName, `",`)
+	}
+	g.P("}}")
+
+	// Attr(name string) (Value, error) // returns (nil, nil) if attribute not present
+}
+
+func genDocProvider() {
+
+}
+
+func genConverter(g *protogen.GeneratedFile, m *messageInfo) {
+	g.P("func (x *", m.GoIdent, ") ToStarlark() *", StarlarkStructName(m.GoIdent), " {")
+	g.P("if x == nil { return nil }")
+	fieldStarlarkConverterPrepare(g, m)
+	g.P("return &", StarlarkStructName(m.GoIdent), "{")
+	for _, field := range m.Fields {
+		if c := fieldStarlarkConverter(g, m, field); c != "" {
+			g.P(StarlarkFieldName(field.GoIdent, field.GoName), ": ", c, ",")
+		}
+	}
+	g.P("}")
+	g.P("}")
+}
+
+func fieldStarlarkConverterPrepare(g *protogen.GeneratedFile, m *messageInfo) {
+
+}
+
+func fieldStarlarkConverter(g *protogen.GeneratedFile, m *messageInfo, field *protogen.Field) string {
+	GET := func() string {
+		return "x.Get" + field.GoName + "()"
+	}
+
+	F := func(s protogen.GoIdent) string {
+		return g.QualifiedGoIdent(s) + "(" + GET() + ")"
+	}
+
+	switch { // FIXME: not done
+	case field.Desc.IsList():
+		return ""
+	case field.Desc.IsMap():
+		return ""
+	}
+
+	switch field.Desc.Kind() {
+	case protoreflect.BoolKind:
+		return F(starlarkBool)
+	case protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Sfixed32Kind, protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind:
+		return g.QualifiedGoIdent(starlarkMakeInt64) + "(int64(" + GET() + "))"
+	case protoreflect.Uint32Kind, protoreflect.Fixed32Kind, protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
+		return g.QualifiedGoIdent(starlarkMakeUint64) + "(uint64(" + GET() + "))"
+	case protoreflect.FloatKind, protoreflect.DoubleKind:
+		return F(starlarkFloat)
+	case protoreflect.StringKind:
+		return F(starlarkString)
+	case protoreflect.BytesKind:
+		return F(starlarkBytes)
+	case protoreflect.EnumKind:
+		// TODO: enhance support enum
+		//goType = g.QualifiedGoIdent(field.Enum.GoIdent)
+		return g.QualifiedGoIdent(starlarkMakeInt64) + "(int64(" + GET() + "))"
+	case protoreflect.MessageKind, protoreflect.GroupKind:
+		full := string(field.Message.Desc.FullName())
+		if custom := CustomMap[full]; custom != nil {
+			convertFunc := custom.ConvertFunc()
+			if convertFunc.GoName == "" {
+				return custom.Modify(GET())
+			}
+			return g.QualifiedGoIdent(convertFunc) + "(" + custom.Modify(GET()) + ")"
+		}
+		if ext := GetMessageExtensionFor(field.Message); ext != nil {
+			switch {
+			case ext.GetDisable():
+				return ""
+			case ext.GetToString():
+				return g.QualifiedGoIdent(starlarkString) + "(" + GET() + ".String())"
+			case ext.GetCustom() != nil:
+				return GET() + ".ToStarlark()"
+			}
+			return "" // impossible
+		}
+		if IsWellKnownType(full) {
+			return g.QualifiedGoIdent(starlarkString) + "(" + GET() + ".String())"
+		}
+
+		return GET() + ".ToStarlark()"
+	}
+
+	return "" // impossible
 }
