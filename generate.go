@@ -235,7 +235,7 @@ func genStarlarkProvider(g *protogen.GeneratedFile, m *messageInfo) {
 			g.P(`"`, prefix, oneof.Desc.Name(), `= %s"+`)
 		}
 
-		g.P(`"`, prefix, field.Desc.Name(), `= %s"+`)
+		g.P(`"`, prefix, field.Desc.JSONName(), `= %s"+`)
 	}
 
 	g.P(`"}",`)
@@ -271,7 +271,7 @@ func genStarlarkProvider(g *protogen.GeneratedFile, m *messageInfo) {
 			g.P(`"`, oneof.Desc.Name(), `",`)
 		}
 
-		g.P(`"`, field.Desc.Name(), `",`)
+		g.P(namesListQuoteAndJoinByComma(field.Desc), ",")
 	}
 	g.P("}}")
 
@@ -285,7 +285,7 @@ func genStarlarkProvider(g *protogen.GeneratedFile, m *messageInfo) {
 			g.P("return x.", StarlarkFieldName(oneof.GoIdent, oneof.GoName).GoName, ", nil")
 		}
 
-		g.P(`case "`, field.Desc.Name(), `":`)
+		g.P("case ", namesListQuoteAndJoinByComma(field.Desc), ":")
 		g.P("return x.", StarlarkFieldName(field.GoIdent, field.GoName).GoName, ", nil")
 	}
 
@@ -433,4 +433,22 @@ func simpleStarlarkConverter(g *protogen.GeneratedFile, fieldDesc protoreflect.F
 	}
 
 	return "" // impossible
+}
+
+func namesListQuoteAndJoinByComma(fieldDesc protoreflect.FieldDescriptor) string {
+	return `"` + strings.Join(namesList(fieldDesc), `", "`) + `"`
+}
+
+func namesList(fieldDesc protoreflect.FieldDescriptor) []string {
+	result := make([]string, 1, 2)
+
+	jsonName := fieldDesc.JSONName()
+	result[0] = jsonName
+
+	protoName := string(fieldDesc.Name())
+	if protoName != jsonName {
+		result = append(result, protoName)
+	}
+
+	return result
 }
