@@ -170,9 +170,7 @@ func fieldStarlarkType(gen *protogen.Plugin, g *protogen.GeneratedFile, f *fileI
 	case protoreflect.BytesKind:
 		return g.QualifiedGoIdent(starlarkBytes)
 	case protoreflect.EnumKind:
-		// TODO: enhance support enum
-		//goType = g.QualifiedGoIdent(field.Enum.GoIdent)
-		return g.QualifiedGoIdent(starlarkInt)
+		return g.QualifiedGoIdent(starlarkString)
 	case protoreflect.MessageKind, protoreflect.GroupKind:
 		full := string(field.Message.Desc.FullName())
 		if custom := CustomMap[full]; custom != nil {
@@ -402,9 +400,7 @@ func simpleStarlarkConverter(g *protogen.GeneratedFile, fieldDesc protoreflect.F
 	case protoreflect.BytesKind:
 		return F(starlarkBytes)
 	case protoreflect.EnumKind:
-		// TODO: enhance support enum
-		//goType = g.QualifiedGoIdent(field.Enum.GoIdent)
-		return g.QualifiedGoIdent(starlarkMakeInt64) + "(int64(" + identifier + "))"
+		return g.QualifiedGoIdent(starlarkString) + "(" + identifier + ".String())"
 	case protoreflect.MessageKind, protoreflect.GroupKind:
 		full := string(fieldDesc.Message().FullName())
 		if custom := CustomMap[full]; custom != nil {
