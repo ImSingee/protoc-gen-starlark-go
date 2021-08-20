@@ -118,6 +118,9 @@ func genMessage(gen *protogen.Plugin, g *protogen.GeneratedFile, f *fileInfo, m 
 	if m.Desc.IsMapEntry() {
 		return
 	}
+	if ext := GetMessageExtensionFor(m.Desc); ext != nil {
+		return
+	}
 
 	// Message type declaration.
 	g.Annotate(m.GoIdent.GoName, m.Location)
