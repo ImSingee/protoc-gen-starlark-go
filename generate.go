@@ -328,16 +328,12 @@ func genConverter(g *protogen.GeneratedFile, m *messageInfo) {
 func oneofStarlarkConverterPrepare(g *protogen.GeneratedFile, m *messageInfo, oneof *protogen.Oneof) {
 	g.P()
 	g.P("var oneof_", oneof.GoName, " ", starlarkValue)
-	for i, field := range oneof.Fields {
-		prefix := "} else "
-		if i == 0 {
-			prefix = ""
-		}
-
-		g.P(prefix, "if v := x.Get", field.GoName, "(); v != nil {")
-		g.P("oneof_", oneof.GoName, " = ", simpleStarlarkConverter(g, field.Desc, "v"))
+	g.P("switch x.", oneof.GoName, ".(type) {")
+	for _, field := range oneof.Fields {
+		g.P("case *", field.GoIdent, ":")
+		g.P("oneof_", oneof.GoName, " = ", simpleStarlarkConverter(g, field.Desc, "x.Get"+field.GoName+"()"))
 	}
-	g.P("} else {")
+	g.P("default:")
 	g.P("oneof_", oneof.GoName, " = ", starlarkNone)
 	g.P("}")
 }
