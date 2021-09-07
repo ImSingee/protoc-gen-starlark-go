@@ -50,13 +50,13 @@ var CustomMap = map[string]OverrideProvider{
 		goName:       "Value",
 		modifier:     func(s string) string { return s + ".ToStarlark()" },
 	},
-	"struct.Struct": &wellKnownProvider{
+	"struct.Dict": &wellKnownProvider{
 		goImportPath: starlarkPackage,
 		goName:       "Dict",
 		goPointer:    true,
 		modifier:     func(s string) string { return s + ".ToStarlark()" },
 	},
-	"struct.ListValue": &wellKnownProvider{
+	"struct.List": &wellKnownProvider{
 		goImportPath: starlarkPackage,
 		goName:       "List",
 		goPointer:    true,
