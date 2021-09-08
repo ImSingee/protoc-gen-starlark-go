@@ -41,6 +41,12 @@ var (
 	starlarkMakeUint64 = protogen.GoIdent{GoName: "MakeUint64", GoImportPath: starlarkPackage}
 	starlarkNewList    = protogen.GoIdent{GoName: "NewList", GoImportPath: starlarkPackage}
 	starlarkNewDict    = protogen.GoIdent{GoName: "NewDict", GoImportPath: starlarkPackage}
+
+	starlarkhelperCanHelp          = protogen.GoIdent{GoName: "CanHelp", GoImportPath: starlarkhelperPackage}
+	starlarkhelperHelpMode         = protogen.GoIdent{GoName: "HelpMode", GoImportPath: starlarkhelperPackage}
+	starlarkhelperHelpModeTerminal = protogen.GoIdent{GoName: "HelpModeTerminal", GoImportPath: starlarkhelperPackage}
+	starlarkhelperDocProvider      = protogen.GoIdent{GoName: "DocProvider", GoImportPath: starlarkhelperPackage}
+	starlarkhelperNewDocObject     = protogen.GoIdent{GoName: "NewDocObject", GoImportPath: starlarkhelperPackage}
 )
 
 func GetImportPath(name string, default_ protogen.GoImportPath) protogen.GoImportPath {

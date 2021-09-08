@@ -130,6 +130,7 @@ func genMessage(gen *protogen.Plugin, g *protogen.GeneratedFile, f *fileInfo, m 
 	g.P()
 
 	genStarlarkProvider(g, m)
+	genDocProvider(g, m)
 	genConverter(g, m)
 }
 
@@ -296,8 +297,69 @@ func genStarlarkProvider(g *protogen.GeneratedFile, m *messageInfo) {
 	g.P("}")
 }
 
-func genDocProvider() {
+func genDocProvider(g *protogen.GeneratedFile, m *messageInfo) {
+	g.P(`var _ `, g.QualifiedGoIdent(starlarkhelperCanHelp), ` = (*`, StarlarkStructName(m.GoIdent), `)(nil)`)
+	g.P()
 
+	// GetDefDoc(mode helper.HelpMode) string
+	g.P("func (x *", StarlarkStructName(m.GoIdent), ") GetDefDoc(mode ", starlarkhelperHelpMode, ") string {")
+	g.P(`switch mode {`)
+	g.P("case ", starlarkhelperHelpModeTerminal, ":")
+	g.P(`return "\x1b[34m" + "Struct [`, m.Desc.Name(), `]" + "\x1b[0m"`)
+	g.P("default:")
+	g.P(`return "Struct [`, m.Desc.Name(), `]"`)
+	g.P("}")
+	g.P("}")
+
+	// GetSimpleDesc(mode HelpMode) string
+	g.P("func (x *", StarlarkStructName(m.GoIdent), ") GetSimpleDesc(mode ", starlarkhelperHelpMode, ") string {")
+	g.P(`return ""`)
+	g.P("}")
+
+	// GetFullDesc(mode HelpMode) string
+	g.P("func (x *", StarlarkStructName(m.GoIdent), ") GetFullDesc(mode ", starlarkhelperHelpMode, ") string {")
+	b := strings.Builder{}
+	b.WriteString("Fields:\n")
+	if len(m.Fields) == 0 {
+		b.WriteString("  (No Fields)")
+	} else {
+		for _, field := range m.Fields {
+			if oneof := field.Oneof; oneof != nil && !oneof.Desc.IsSynthetic() && oneof.Fields[0] == field {
+				b.WriteString("  - ")
+				b.WriteString("` + \"\\x1b[1m\" + `")
+				b.WriteString(string(oneof.Desc.Name()))
+				b.WriteString("` + \"\\x1b[0m\" + `")
+				b.WriteString("  ONEOF{ ")
+				for i, f := range oneof.Fields {
+					if i != 0 {
+						b.WriteString(" | ")
+					}
+					b.WriteString("=")
+					b.WriteString(f.Desc.JSONName())
+				}
+				b.WriteString(" }")
+				b.WriteString("\n")
+			}
+
+			b.WriteString("  - ")
+			b.WriteString("` + \"\\x1b[1m\" + `")
+			b.WriteString(namesListJoinByComma(field.Desc))
+			b.WriteString("` + \"\\x1b[0m\" + `")
+			b.WriteString(": ")
+			b.WriteString(starlarkType(g, field.Desc))
+			b.WriteString("\n")
+		}
+	}
+
+	g.P("return `", b.String(), "`")
+	g.P("}")
+	g.P()
+
+	// XX_ProvideDoc() DocProvider
+	g.P("func ", StarlarkStructName(m.GoIdent), "_ProvideDoc() ", starlarkhelperDocProvider, " {")
+	g.P("return ", starlarkhelperNewDocObject, "((*", StarlarkStructName(m.GoIdent), ")(nil))")
+	g.P("}")
+	g.P()
 }
 
 func genConverter(g *protogen.GeneratedFile, m *messageInfo) {
@@ -430,8 +492,60 @@ func simpleStarlarkConverter(g *protogen.GeneratedFile, fieldDesc protoreflect.F
 	return "" // impossible
 }
 
+func starlarkType(g *protogen.GeneratedFile, fieldDesc protoreflect.FieldDescriptor) string {
+	switch fieldDesc.Kind() {
+	case protoreflect.BoolKind:
+		return "bool"
+	case protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Sfixed32Kind, protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind:
+		return "int"
+	case protoreflect.Uint32Kind, protoreflect.Fixed32Kind, protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
+		return "int"
+	case protoreflect.FloatKind, protoreflect.DoubleKind:
+		return "float"
+	case protoreflect.StringKind:
+		return "str"
+	case protoreflect.BytesKind:
+		return "bytes"
+	case protoreflect.EnumKind:
+		names := fieldDesc.Enum().Values()
+		var list []string
+		for i := 0; i < names.Len(); i++ {
+			list = append(list, string(names.Get(i).Name()))
+		}
+
+		return "ENUM{" + `"` + strings.Join(list, `" | "`) + `"` + "}"
+	case protoreflect.MessageKind, protoreflect.GroupKind:
+		full := string(fieldDesc.Message().FullName())
+		if custom := CustomMap[full]; custom != nil {
+			return "..." // TODO
+		}
+		if ext := GetMessageExtensionFor(fieldDesc.Message()); ext != nil {
+			switch {
+			case ext.GetDisable():
+				return "!"
+			case ext.GetToString():
+				return "string"
+			case ext.GetCustom() != nil:
+				return "..." // TODO
+			}
+			return "!" // impossible
+		}
+		if IsWellKnownType(full) {
+			return "..." // TODO
+		}
+
+		return string(fieldDesc.Name())
+	}
+
+	return "!" // impossible
+}
+
 func namesListQuoteAndJoinByComma(fieldDesc protoreflect.FieldDescriptor) string {
 	return `"` + strings.Join(namesList(fieldDesc), `", "`) + `"`
+}
+
+func namesListJoinByComma(fieldDesc protoreflect.FieldDescriptor) string {
+	return strings.Join(namesList(fieldDesc), ", ")
 }
 
 func namesList(fieldDesc protoreflect.FieldDescriptor) []string {
