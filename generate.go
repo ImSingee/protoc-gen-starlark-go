@@ -524,7 +524,7 @@ func starlarkType(g *protogen.GeneratedFile, fieldDesc protoreflect.FieldDescrip
 			case ext.GetDisable():
 				return "!"
 			case ext.GetToString():
-				return "string"
+				return "str"
 			case ext.GetCustom() != nil:
 				return "..." // TODO
 			}
