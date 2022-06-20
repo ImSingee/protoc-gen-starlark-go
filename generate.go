@@ -228,16 +228,20 @@ func genStarlarkProvider(g *protogen.GeneratedFile, m *messageInfo) {
 	g.P("func (x *", StarlarkStructName(m.GoIdent), ") String() string {")
 	g.P(`if x == nil { return "`, m.Desc.Name(), `{}" }`)
 	g.P(`return `, g.QualifiedGoIdent(fmtSprintf), `("`, m.Desc.Name(), `{"+`)
-	for i, field := range m.Fields {
+	isFirst := true
+	for _, field := range m.Fields {
 		prefix := ""
-		if i != 0 {
+		if isFirst {
+			isFirst = false
+		} else {
 			prefix = ", "
 		}
+
 		if oneof := field.Oneof; oneof != nil && !oneof.Desc.IsSynthetic() && oneof.Fields[0] == field {
-			g.P(`"`, prefix, oneof.Desc.Name(), `= %s"+`)
+			g.P(`"`, prefix, oneof.Desc.Name(), ` = %s"+`)
 		}
 
-		g.P(`"`, prefix, field.Desc.JSONName(), `= %s"+`)
+		g.P(`"`, prefix, field.Desc.JSONName(), ` = %s"+`)
 	}
 
 	g.P(`"}",`)
